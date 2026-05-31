@@ -5,7 +5,7 @@ import * as path from 'path';
 
 export class TtsTypeCast implements TTS {
     private client: TypecastClient | undefined;
-    private eveVoiceID = "tc_632a759503f3cb7b9c8a717b";     // Eve-sama's voice is called Lindsay in TypeCast
+    private readonly defaultVoiceId = "tc_632a759503f3cb7b9c8a717b";     // Eve-sama's voice is called Lindsay in TypeCast
 
     public async init(): Promise<void> {
         const apiKey = process.env['TYPECAST_API_KEY'];
@@ -26,7 +26,7 @@ export class TtsTypeCast implements TTS {
         console.log("Aetherial Vocal Cords (TypeCast Cloud) disconnected.");
     }
 
-    public async generate(text: string): Promise<void> {
+    public async generate(text: string, voiceId = this.defaultVoiceId): Promise<void> {
         if (!this.client){
             throw new Error("TypeCast client not initialized! Cannot speak.");
         }
@@ -38,7 +38,7 @@ export class TtsTypeCast implements TTS {
             const audio = await this.client.textToSpeech({
                 text: text,
                 model: "ssfm-v30",
-                voice_id: this.eveVoiceID,
+                voice_id: voiceId,
                 prompt: {
                     emotion_type: "smart"
                 } as SmartPrompt

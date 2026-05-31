@@ -108,9 +108,11 @@ export class AetherialApp {
 
         await this.triggerExpression(emotion, EveResponse.expressionDurationMs);
 
+        const companionProfile = getCompanionProfile(companionMode);
+
         if (EveResponse.speak){
             try {
-                await this.requireVoice().generate(spokenText);
+                await this.requireVoice().generate(spokenText, companionProfile.voiceId);
             } catch (error) {
                 console.warn("☁️ [System]: Cloud failed! Switching to local XTTS-v2 vocal cords...", error);
                 await this.requireBackupVoice().generate(spokenText);
@@ -119,7 +121,6 @@ export class AetherialApp {
         
 
         const speakerLabel = mode === 'speech' ? 'speech' : 'text';
-        const companionProfile = getCompanionProfile(companionMode);
         console.log(`[${companionProfile.name}:${speakerLabel} (${emotion})]: "${spokenText}"`);
 
         return {
