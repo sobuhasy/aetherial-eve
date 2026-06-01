@@ -1,7 +1,8 @@
 import { LlmOpenAI } from "../module/LlmOpenAI";
 import { TtsTypeCast } from "../tts/TtsTypeCast";
 import { MicWhisper } from "../stt/MicWhisper";
-import { VTubeBridge } from '../module/VTubeBridge';
+import { RobotBody } from "../body/RobotBody";
+import { createRobotBody } from "../body/BodyFactory";
 import { ObsVision } from '../module/ObsVision';
 import { TtsCoqui } from '../tts/TtsCoqui';
 import { getCompanionProfile, toCompanionMode } from '../companion/CompanionProfile';
@@ -30,7 +31,7 @@ export class AetherialApp {
     private eveVoice?: TtsTypeCast;
     private eveVoiceBackup?: TtsCoqui;
     private eveEars?: MicWhisper;
-    private eveBody?: VTubeBridge;
+    private eveBody?: RobotBody;
     private eveEyes?: ObsVision;
     private readonly companionPrompts = new CompanionPromptService();
     private initialized = false;
@@ -44,7 +45,7 @@ export class AetherialApp {
         this.eveVoice = new TtsTypeCast();
         this.eveVoiceBackup = new TtsCoqui();
         this.eveEars = new MicWhisper();
-        this.eveBody = new VTubeBridge();
+        this.eveBody = createRobotBody("vtube");
         this.eveEyes = new ObsVision();
 
         await this.eveBrain.init();
@@ -179,27 +180,7 @@ export class AetherialApp {
     }
 
     private async triggerExpression(emotion: EveEmotion, durationMs?: number): Promise<void> {
-        let expressionFile = "";
-        if (emotion === "love") expressionFile = "Love.exp3.json";
-        if (emotion === "angry") expressionFile = "Angry.exp3.json";
-        if (emotion === "sad") expressionFile = "Cry.exp3.json";
-        if (emotion === "amazed") expressionFile = "Amazed.exp3.json";
-        if (emotion === "sleepy") expressionFile = "Sleepy.exp3.json";
-        if (emotion === "nervous") expressionFile = "Nervous.exp3.json";
-
-        if (!expressionFile) {
-            return;
-        }
-
-        await this.requireBody().triggerExpression(expressionFile);
-
-        setTimeout(async () => {
-            try {
-                await this.requireBody().clearExpression(expressionFile);
-            } catch (error) {
-                console.error("Failed to reset Aetherial expression:", error);
-            }
-        }, durationMs ?? 5000);
+        await this.requireBody().setExpression(emotion, durationMs);
     }
 
     private requireBrain(): LlmOpenAI {
@@ -222,8 +203,8 @@ export class AetherialApp {
         return this.eveEars;
     }
 
-    private requireBody(): VTubeBridge {
-        if (!this.eveBody) throw new Error('VTubeBridge not initialized');
+    private requireBody(): RobotBody {
+        if (!this.eveBody) throw new Error('RobotBody not initialized');
         return this.eveBody;
     }
 
