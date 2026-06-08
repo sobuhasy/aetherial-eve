@@ -45,7 +45,7 @@ export class AetherialApp {
         this.eveVoice = new TtsTypeCast();
         this.eveVoiceBackup = new TtsCoqui();
         this.eveEars = new MicWhisper();
-        this.eveBody = createRobotBody("vtube");
+        this.eveBody = createRobotBody("hybrid");
         this.eveEyes = new ObsVision();
 
         await this.eveBrain.init();
