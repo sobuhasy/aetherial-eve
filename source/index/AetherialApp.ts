@@ -1,8 +1,8 @@
-import { LlmOpenAI } from "../module/LlmOpenAI";
+import { ChatHistoryMessage, LlmOpenAI } from "../module/LlmOpenAI";
 import { TtsTypeCast } from "../tts/TtsTypeCast";
 import { MicWhisper } from "../stt/MicWhisper";
 import { RobotBody } from "../body/RobotBody";
-import { createRobotBody } from "../body/BodyFactory";
+import { createRobotBody, toBodyBackend } from "../body/BodyFactory";
 import { ObsVision } from '../module/ObsVision';
 import { TtsCoqui } from '../tts/TtsCoqui';
 import { getCompanionProfile, toCompanionMode } from '../companion/CompanionProfile';
@@ -26,6 +26,9 @@ type EveResponse = {
     expressionDurationMs?: number;
 }
 
+const MAX_HISTORY_MESSAGES = 12;
+const MAX_HISTORY_CONTENT_LENGTH = 1200;
+
 export class AetherialApp {
     private eveBrain?: LlmOpenAI;
     private eveVoice?: TtsTypeCast;
@@ -34,6 +37,7 @@ export class AetherialApp {
     private eveBody?: RobotBody;
     private eveEyes?: ObsVision;
     private readonly companionPrompts = new CompanionPromptService();
+    private readonly conversationHistory = new Map<string, ChatHistoryMessage[]>();
     private initialized = false;
 
     async init(): Promise<void> {
@@ -45,7 +49,7 @@ export class AetherialApp {
         this.eveVoice = new TtsTypeCast();
         this.eveVoiceBackup = new TtsCoqui();
         this.eveEars = new MicWhisper();
-        this.eveBody = createRobotBody("hybrid");
+        this.eveBody = createRobotBody(toBodyBackend(process.env["AETHERIAL_BODY_BACKEND"]));
         this.eveEyes = new ObsVision();
 
         await this.eveBrain.init();
@@ -95,7 +99,8 @@ export class AetherialApp {
             userPrompt,
         ].join('\n');
 
-        const response = await this.requireBrain().generate(routedPrompt, finalImage);
+        const historyKey = companionMode;
+        const response = await this.requireBrain().generate(routedPrompt, finalImage, this.getConversationHistory(historyKey));
         if (!(response.success && response.value)) {
             return {
                 success: false,
@@ -106,6 +111,7 @@ export class AetherialApp {
         const EveResponse = this.parseEveResponse(response.value);
         const spokenText = EveResponse.text;
         const emotion = EveResponse.emotion;
+        this.rememberConversationTurn(historyKey, userPrompt, spokenText);
 
         await this.triggerExpression(emotion, EveResponse.expressionDurationMs);
 
@@ -177,6 +183,29 @@ export class AetherialApp {
         const normalized = typeof value === 'string' ? value.toLowerCase() : 'neutral';
         const allowed: EveEmotion[] = ['neutral', 'love', 'angry', 'sad', 'amazed', 'sleepy', 'nervous'];
         return allowed.includes(normalized as EveEmotion) ? (normalized as EveEmotion) : 'neutral';
+    }
+
+    private getConversationHistory(key: string): ChatHistoryMessage[] {
+        return [...(this.conversationHistory.get(key) ?? [])];
+    }
+
+    private rememberConversationTurn(key: string, userPrompt: string, responseText: string): void {
+        const current = this.conversationHistory.get(key) ?? [];
+        current.push(
+            { role: "user", content: this.truncateHistoryContent(userPrompt) },
+            { role: "assistant", content: this.truncateHistoryContent(responseText) },
+        );
+
+        this.conversationHistory.set(key, current.slice(-MAX_HISTORY_MESSAGES));
+    }
+
+    private truncateHistoryContent(content: string): string {
+        const normalized = content.replace(/\s+/g, " ").trim();
+        if (normalized.length <= MAX_HISTORY_CONTENT_LENGTH) {
+            return normalized;
+        }
+
+        return `${normalized.slice(0, MAX_HISTORY_CONTENT_LENGTH - 1)}…`;
     }
 
     private async triggerExpression(emotion: EveEmotion, durationMs?: number): Promise<void> {

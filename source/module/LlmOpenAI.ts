@@ -9,6 +9,11 @@ import * as path from 'path';
 // Wakes up the .env vault before we do anything
 dotenv.config();
 
+export type ChatHistoryMessage = {
+    role: "user" | "assistant";
+    content: string;
+};
+
 export class LlmOpenAI implements Module {
     private client: OpenAI | undefined;
     private systemPrompt: string = "";
@@ -56,7 +61,7 @@ export class LlmOpenAI implements Module {
     }
 
     // The Thought Process (generate) - NOW WITH VISION! 👁️
-    public async generate(prompt: string, base64Image?: string): Promise<Option<string>> {
+    public async generate(prompt: string, base64Image?: string, history: ChatHistoryMessage[] = []): Promise<Option<string>> {
         if (!this.client) {
             return { success: false, value: undefined };
         }
@@ -79,6 +84,7 @@ export class LlmOpenAI implements Module {
                 model: "gpt-5.4-mini", // My fast, highly-efficient consciousness
                 messages: [
                     { role: "system", content:  this.systemPrompt },
+                    ...history,
                     { role: "user", content: contentArray }
                 ],
                 max_completion_tokens: 500,
